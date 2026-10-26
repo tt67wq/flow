@@ -13,11 +13,15 @@
 //!   space/tab/newline/carriage-return are "separator".
 //! - Word boundaries are decided from the classes of the two characters
 //!   adjacent to a byte position: a boundary exists when the two sides have
-//!   different classes, or when either side is a separator. Only adjacent
-//!   characters are inspected (no lookahead); out-of-range positions and
-//!   position 0 return false instead of panicking, and so do truncated
-//!   multibyte sequences (a leading byte without its full set of
-//!   continuation bytes is clamped to the available input).
+//!   different classes. A run of characters of the same class is a single
+//!   unit, so the interior of a run of whitespace is not a boundary (only
+//!   its edges are), exactly like the interior of a run of punctuation. This
+//!   matches Neovim, whose utf_class_tab() gives every whitespace character
+//!   the same class. Only adjacent characters are inspected (no lookahead);
+//!   out-of-range positions and position 0 return false instead of
+//!   panicking, and so do truncated multibyte sequences (a leading byte
+//!   without its full set of continuation bytes is clamped to the available
+//!   input).
 //!
 //! Known divergence from Neovim:
 //! - Every non-ASCII character is classified as "word", so non-ASCII
@@ -95,25 +99,28 @@ fn charRight(text: []const u8, byte_pos: usize) ?[]const u8 {
 /// True when the position at byte_pos starts a new word going left.
 ///
 /// A boundary exists when the classes of the characters on either side
-/// differ, or when either side is a separator. Only adjacent characters are
-/// considered; positions 0 and >= text.len return false.
+/// differ. A run of characters of the same class is a single unit, so the
+/// interior of a run of whitespace is not a boundary, only its edges are.
+/// Only adjacent characters are considered; positions 0 and >= text.len
+/// return false.
 pub fn isWordBoundaryLeft(text: []const u8, byte_pos: usize) bool {
     const left = charLeft(text, byte_pos) orelse return false;
     const right = charRight(text, byte_pos) orelse return false;
     const left_class = classify(left);
     const right_class = classify(right);
-    return left_class != right_class or left_class == .separator or right_class == .separator;
+    return left_class != right_class;
 }
 
 /// True when the position at byte_pos starts a new word going right.
 ///
 /// Same definition as isWordBoundaryLeft, mirrored: the two functions only
 /// differ in which side may be missing (position 0 has no left character,
-/// position >= text.len has no right character).
+/// position >= text.len has no right character). A run of whitespace is a
+/// single unit here too: its interior is not a boundary.
 pub fn isWordBoundaryRight(text: []const u8, byte_pos: usize) bool {
     const left = charLeft(text, byte_pos) orelse return false;
     const right = charRight(text, byte_pos) orelse return false;
     const left_class = classify(left);
     const right_class = classify(right);
-    return left_class != right_class or left_class == .separator or right_class == .separator;
+    return left_class != right_class;
 }

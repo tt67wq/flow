@@ -90,6 +90,53 @@ test "boundaries: whitespace next to a word char is a boundary" {
     try std.testing.expect(word_break.isWordBoundaryRight(text, space + 1));
 }
 
+test "boundaries: a run of whitespace is one unit, like a run of punctuation" {
+    // Neovim's utf_class_tab() gives every whitespace character the same
+    // class, and a word boundary exists where the class changes. A run of
+    // whitespace is therefore a single unit: the boundaries sit at its EDGES,
+    // not in its interior. A run of punctuation behaves the same way, which
+    // the test above already pins.
+    //
+    //    0123
+    const text = "a  b";
+    // the run of whitespace starts right after 'a'
+    try std.testing.expect(word_break.isWordBoundaryLeft(text, 1));
+    try std.testing.expect(word_break.isWordBoundaryRight(text, 1));
+    // the interior of the run is not a boundary
+    try std.testing.expect(!word_break.isWordBoundaryLeft(text, 2));
+    try std.testing.expect(!word_break.isWordBoundaryRight(text, 2));
+    // the run ends where 'b' starts
+    try std.testing.expect(word_break.isWordBoundaryLeft(text, 3));
+    try std.testing.expect(word_break.isWordBoundaryRight(text, 3));
+}
+
+test "boundaries: a longer whitespace run has boundaries only at its edges" {
+    //    012345
+    const text = "a   b";
+    try std.testing.expect(word_break.isWordBoundaryLeft(text, 1));
+    try std.testing.expect(word_break.isWordBoundaryRight(text, 1));
+    // both interior positions of the three-space run are not boundaries
+    try std.testing.expect(!word_break.isWordBoundaryLeft(text, 2));
+    try std.testing.expect(!word_break.isWordBoundaryRight(text, 2));
+    try std.testing.expect(!word_break.isWordBoundaryLeft(text, 3));
+    try std.testing.expect(!word_break.isWordBoundaryRight(text, 3));
+    // the run ends where 'b' starts
+    try std.testing.expect(word_break.isWordBoundaryLeft(text, 4));
+    try std.testing.expect(word_break.isWordBoundaryRight(text, 4));
+}
+
+test "boundaries: a tab run is one unit too" {
+    // tabs are separators just like spaces
+    //    0123
+    const text = "a\t\tb";
+    try std.testing.expect(word_break.isWordBoundaryLeft(text, 1));
+    try std.testing.expect(word_break.isWordBoundaryRight(text, 1));
+    try std.testing.expect(!word_break.isWordBoundaryLeft(text, 2));
+    try std.testing.expect(!word_break.isWordBoundaryRight(text, 2));
+    try std.testing.expect(word_break.isWordBoundaryLeft(text, 3));
+    try std.testing.expect(word_break.isWordBoundaryRight(text, 3));
+}
+
 test "boundaries: newline separates words" {
     const text = "foo\nbar";
     const nl = std.mem.indexOf(u8, text, "\n").?;
